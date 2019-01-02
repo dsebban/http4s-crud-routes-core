@@ -1,6 +1,7 @@
 project/boot
 target
 .ensime
+.metals
 .ensime_lucene
 .ensime_cache
 .ensime_snapshot

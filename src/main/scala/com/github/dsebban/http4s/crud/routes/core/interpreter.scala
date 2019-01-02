@@ -1,4 +1,4 @@
-package com.github.gvolpe.http
+package com.github.dsebban.http4s.crud.routes.core
 
 import algebra._
 import domain._

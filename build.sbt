@@ -26,15 +26,15 @@ lazy val commonScalacOptions = Seq(
   "100"
 )
 
-lazy val classy = (project in file(".")).settings(
+lazy val root = (project in file(".")).settings(
   inThisBuild(
     List(
-      organization := "com.github.gvolpe",
+      organization := "com.github.dsebban",
       scalaVersion := "2.12.7",
       version := "0.1.0-SNAPSHOT"
     )
   ),
-  name := "classy-optics",
+  name := "http4s-crud-routes-core",
   scalafmtOnCompile := true,
   scalacOptions ++= commonScalacOptions,
   libraryDependencies ++= Seq(
@@ -55,7 +55,6 @@ lazy val classy = (project in file(".")).settings(
     Libraries.circeGeneric,
     Libraries.circeGenericExt,
     Libraries.circeParser,
-    Libraries.pureConfig,
     Libraries.log4cats,
     Libraries.logback,
     Libraries.scalaTest      % "test",

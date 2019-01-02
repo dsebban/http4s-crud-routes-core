@@ -6,12 +6,11 @@ object Dependencies {
     val cats                = "1.4.0"
     val catsMeowMtl         = "0.2.0"
     val catsPar             = "0.2.0"
-    val catsEffect          = "1.1.0-M1"
+    val catsEffect          = "1.1.0"
     val fs2                 = "1.0.0"
-    val http4s              = "0.20.0-M1"
-    val http4sTracer        = "1.0-RC2"
-    val circe               = "0.10.0"
-    val pureConfig          = "0.9.2"
+    val http4s              = "0.20.0-M4"
+    val http4sTracer        = "1.2.0"
+    val circe               = "0.10.1"
     val log4cats            = "0.2.0-RC2"
 
     val betterMonadicFor    = "0.3.0-M2"
@@ -39,7 +38,6 @@ object Dependencies {
     lazy val circeGeneric        = circe("circe-generic")
     lazy val circeGenericExt     = circe("circe-generic-extras")
     lazy val circeParser         = circe("circe-parser")
-    lazy val pureConfig          = "com.github.pureconfig" %% "pureconfig"                 % Versions.pureConfig
     lazy val log4cats            = "io.chrisdavenport"     %% "log4cats-slf4j"             % Versions.log4cats
 
     // Compiler plugins
