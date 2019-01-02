@@ -36,6 +36,7 @@ lazy val root = (project in file(".")).settings(
   ),
   name := "http4s-crud-routes-core",
   scalafmtOnCompile := true,
+  triggeredMessage := Watched.clearWhenTriggered,
   scalacOptions ++= commonScalacOptions,
   libraryDependencies ++= Seq(
     compilerPlugin(Libraries.kindProjector),

@@ -1,6 +1,7 @@
 package com.github.dsebban.http4s.crud.routes.core
 
 import algebra._
+import domain._
 import cats.effect._
 import cats.syntax.functor._
 import com.olegpy.meow.hierarchy._
@@ -23,11 +24,12 @@ object server extends IOApp {
 
 }
 
-class HttpServer[F[_]: Sync](users: UserAlg[F]) {
+class HttpServer[F[_]: Sync](users: ResourceAlgebra[F, User]) {
+  import org.http4s.server.Router
 
-  implicit val errorHandler = new UserHttpErrorHandler[F]
+  implicit def errorHandler: HttpErrorHandler[F, UserError] = new UserHttpErrorHandler[F]
 
-  val routes = new UserRoutesMTL[F](users).routes
+  val routes = Router("/users" -> new UserRoutesMTL[F](users).routes)
 
   val httpApp: HttpApp[F] = routes.orNotFound
 
