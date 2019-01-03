@@ -1,36 +1,23 @@
 package com.github.dsebban.http4s.crud.routes.core
 
 import algebra._
-import domain._
 import cats.effect._
-import cats.syntax.functor._
 import com.olegpy.meow.hierarchy._
 import org.http4s._
-import org.http4s.implicits._
-import org.http4s.server.blaze.BlazeServerBuilder
+import io.circe._
 
-object server extends IOApp {
+object server {
 
-  override def run(args: List[String]): IO[ExitCode] =
-    interpreter.create[IO].flatMap { users =>
-      BlazeServerBuilder[IO]
-        .bindHttp(8080, "0.0.0.0")
-        .withHttpApp(new HttpServer[IO](users).httpApp)
-        .serve
-        .compile
-        .drain
-        .as(ExitCode.Success)
-    }
+  class HttpServer[F[_]: Sync, R: Encoder: Decoder, E <: Throwable](repo: ResourceAlgebra[F, R], prefix: String)(
+      implicit H: HttpErrorHandler[F, E]
+  ) {
 
-}
+    import org.http4s.implicits._
+    import org.http4s.server.Router
 
-class HttpServer[F[_]: Sync](users: ResourceAlgebra[F, User]) {
-  import domain._
-  import io.circe.generic.auto._
-  import org.http4s.server.Router
+    val routes = Router(prefix -> new UserRoutesMTL[F, R, E](repo).routes)
 
-  val routes = Router("/users" -> new UserRoutesMTL[F, User, UserError](users).routes)
+    val httpApp: HttpApp[F] = routes.orNotFound
 
-  val httpApp: HttpApp[F] = routes.orNotFound
-
+  }
 }
