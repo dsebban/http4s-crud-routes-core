@@ -3,9 +3,18 @@ package com.github.dsebban.http4s.crud.routes.core
 import cats.data.EitherNel
 import cats.implicits._
 
+import io.circe.syntax._
+import org.http4s.circe._
+import org.http4s.dsl.Http4sDsl
+import cats.MonadError
+import org.http4s._
+
 object domain {
 
   case class User(id: Option[String], username: String, age: Int)
+
+  // implicit val decoder = Decoder[User]
+  // implicit val encoder = Encoder[User]
   case class UserUpdateAge(age: Int)
 
   sealed trait UserError extends Exception
@@ -29,6 +38,19 @@ object domain {
         .parMapN(User(user.id, _, _))
     }
 
+    class UserHttpErrorHandler[F[_]: MonadError[?[_], UserError]]
+        extends HttpErrorHandler[F, UserError]
+        with Http4sDsl[F] {
+      private val handler: UserError => F[Response[F]] = {
+        case NameTooLong(username)       => BadRequest(s"Name $username is too long".asJson)
+        case InvalidUserAge(age)         => BadRequest(s"Invalid age $age".asJson)
+        case UserAlreadyExists(username) => Conflict(s"Username $username already exists!".asJson)
+        case UserNotFound(username)      => NotFound(s"User not found: $username".asJson)
+      }
+
+      override def handle(routes: HttpRoutes[F]): HttpRoutes[F] =
+        RoutesHttpErrorHandler(routes)(handler)
+    }
   }
 
 }
