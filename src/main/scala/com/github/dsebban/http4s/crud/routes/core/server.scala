@@ -29,8 +29,6 @@ class HttpServer[F[_]: Sync](users: ResourceAlgebra[F, User]) {
   import io.circe.generic.auto._
   import org.http4s.server.Router
 
-  implicit def errorHandler: HttpErrorHandler[F, UserError] = new UserError.UserHttpErrorHandler[F]
-
   val routes = Router("/users" -> new UserRoutesMTL[F, User, UserError](users).routes)
 
   val httpApp: HttpApp[F] = routes.orNotFound

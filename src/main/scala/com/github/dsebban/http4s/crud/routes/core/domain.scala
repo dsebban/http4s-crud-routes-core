@@ -12,9 +12,6 @@ import org.http4s._
 object domain {
 
   case class User(id: Option[String], username: String, age: Int)
-
-  // implicit val decoder = Decoder[User]
-  // implicit val encoder = Encoder[User]
   case class UserUpdateAge(age: Int)
 
   sealed trait UserError extends Exception
@@ -37,6 +34,9 @@ object domain {
       (validateName, validateAge)
         .parMapN(User(user.id, _, _))
     }
+
+    implicit def errorHandler[F[_]: MonadError[?[_], UserError]]: HttpErrorHandler[F, UserError] =
+      new UserHttpErrorHandler[F]
 
     class UserHttpErrorHandler[F[_]: MonadError[?[_], UserError]]
         extends HttpErrorHandler[F, UserError]

@@ -16,26 +16,42 @@ class UserRoutesMTL[F[_], R, E <: Throwable](resourceAlgebra: ResourceAlgebra[F,
                                                                                      H: HttpErrorHandler[F, E])
     extends Http4sDsl[F] {
 
-  private val httpRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
+  def getAll: HttpRoutes[F] =
+    H.handle {
+      HttpRoutes.of[F] {
+        case GET -> Root =>
+          resourceAlgebra.list >>= (stream => Ok(stream.map(_.asJson)))
+      }
+    }
 
-    case GET -> Root =>
-      resourceAlgebra.list >>= (stream => Ok(stream.map(_.asJson)))
+  def getByID: HttpRoutes[F] =
+    H.handle {
+      HttpRoutes.of[F] {
+        case GET -> Root / id =>
+          resourceAlgebra.find(id) >>= (_.fold(NotFound(s"Not found: $id".asJson))(r => Ok(r.asJson)))
+      }
+    }
 
-    case GET -> Root / id =>
-      resourceAlgebra.find(id) >>= (_.fold(NotFound(s"Not found: $id".asJson))(r => Ok(r.asJson)))
+  def create: HttpRoutes[F] =
+    H.handle {
+      HttpRoutes.of[F] {
+        case req @ POST -> Root =>
+          req.as[R] >>= (user => resourceAlgebra.save(user) >>= (user => Created(user.asJson)))
+      }
+    }
 
-    case req @ POST -> Root =>
-      req.as[R] >>= (user => resourceAlgebra.save(user) >>= (user => Created(user.asJson)))
+// def update: HttpRoutes[F] =
+//     H.handle {
+//       HttpRoutes.of[F] {
+//     case req @ PUT -> Root / id =>
+//       req.as[UserUpdateAge] >>= (
+//           uu =>
+//             resourceAlgebra.update(id, _.age, uu.age, (u: User, newAge: Int) => u.copy(age = newAge)) *> Created(
+//               id.asJson
+//             )
+//       )
+//   }
 
-    // case req @ PUT -> Root / id =>
-    //   req.as[UserUpdateAge] >>= (
-    //       uu =>
-    //         resourceAlgebra.update(id, _.age, uu.age, (u: User, newAge: Int) => u.copy(age = newAge)) *> Created(
-    //           id.asJson
-    //         )
-    //   )
-  }
-
-  val routes: HttpRoutes[F] = H.handle(httpRoutes)
+  val routes: HttpRoutes[F] = getAll <+> getByID <+> create
 
 }
