@@ -11,7 +11,7 @@ import org.http4s._
 
 object domain {
 
-  case class User(id: Option[String], username: String, age: Int)
+  case class User(username: String, age: Int)
   case class UserUpdateAge(age: Int)
 
   sealed trait UserError extends Exception
@@ -32,7 +32,7 @@ object domain {
         user.age.asRight[UserError].ensure(InvalidUserAge(user.age))(_ > 0).toEitherNel
 
       (validateName, validateAge)
-        .parMapN(User(user.id, _, _))
+        .parMapN(User(_, _))
     }
 
     implicit def errorHandler[F[_]: MonadError[?[_], UserError]]: HttpErrorHandler[F, UserError] =

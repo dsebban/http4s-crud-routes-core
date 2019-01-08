@@ -36,7 +36,7 @@ class UserRoutesMTL[F[_], R, E <: Throwable](resourceAlgebra: ResourceAlgebra[F,
     H.handle {
       HttpRoutes.of[F] {
         case req @ POST -> Root =>
-          req.as[R] >>= (user => resourceAlgebra.save(user) >>= (user => Created(user.asJson)))
+          req.as[R] >>= (r => resourceAlgebra.save(r)) >>= { case (id, r) => Created(id.asJson) }
       }
     }
 

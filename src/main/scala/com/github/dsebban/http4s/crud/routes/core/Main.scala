@@ -12,7 +12,7 @@ object Main extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
     val usersRepo = interpreter
-      .create[IO, User, UserError](UserError.validate, _.id, _.copy(id = Some(java.util.UUID.randomUUID.toString)))
+      .create[IO, User, UserError](UserError.validate, _ => java.util.UUID.randomUUID.toString)
 
     usersRepo.flatMap { users =>
       BlazeServerBuilder[IO]
