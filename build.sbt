@@ -1,6 +1,7 @@
 import Dependencies._
 
 lazy val commonScalacOptions = Seq(
+  "-P:acyclic:force",
   "-deprecation",
   "-encoding",
   "UTF-8",
@@ -12,6 +13,13 @@ lazy val commonScalacOptions = Seq(
   "-Ypartial-unification",
   "-unchecked",
   "-Xfatal-warnings",
+  "-Ywarn-unused:implicits", // Warn if an implicit parameter is unused.
+  "-Ywarn-unused:imports", // Warn if an import selector is not referenced.
+  "-Ywarn-unused:locals", // Warn if a local definition is unused.
+  "-Ywarn-unused:params", // Warn if a value parameter is unused.
+  "-Ywarn-unused:patvars", // Warn if a variable bound in a pattern is unused.
+  "-Ywarn-unused:privates", // Warn if a private member is unused.
+  "-Ywarn-value-discard", // Warn when non-Unit expression results are unused.
   "-Xlint",
   "-Yno-adapted-args",
   "-Ywarn-dead-code",
@@ -36,21 +44,27 @@ lazy val root = (project in file(".")).settings(
   ),
   name := "http4s-crud-routes-core",
   scalafmtOnCompile := true,
+  autoCompilerPlugins := true,
   triggeredMessage := Watched.clearWhenTriggered,
   scalacOptions ++= commonScalacOptions,
   libraryDependencies ++= Seq(
     compilerPlugin(Libraries.kindProjector),
     compilerPlugin(Libraries.betterMonadicFor),
-    compilerPlugin(Libraries.macroParadise)
+    compilerPlugin(Libraries.macroParadise),
+    compilerPlugin(Libraries.acyclic)
   ),
   libraryDependencies ++= Seq(
     Libraries.cats,
+    Libraries.catsKernel,
     Libraries.catsMeowMtl,
     Libraries.catsPar,
     Libraries.catsEffect,
     Libraries.fs2,
+    Libraries.shapeless,
     Libraries.http4sDsl,
     Libraries.http4sServer,
+    Libraries.http4sCore,
+    Libraries.http4sBlazeServer,
     Libraries.http4sCirce,
     Libraries.circeCore,
     Libraries.circeGeneric,
@@ -58,6 +72,7 @@ lazy val root = (project in file(".")).settings(
     Libraries.circeParser,
     Libraries.log4cats,
     Libraries.logback,
+    Libraries.acyclic        % "provided",
     Libraries.scalaTest      % "test",
     Libraries.scalaCheck     % "test",
     Libraries.catsEffectLaws % "test"

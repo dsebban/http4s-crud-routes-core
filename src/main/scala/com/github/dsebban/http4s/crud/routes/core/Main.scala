@@ -7,12 +7,15 @@ import cats.syntax.functor._
 import com.olegpy.meow.hierarchy._
 import io.circe.generic.auto._
 import org.http4s.server.blaze.BlazeServerBuilder
+import com.github.dsebban.http4s.crud.routes.mongo.interpreter
+import com.github.dsebban.http4s.crud.routes.mongo.KVStore
 
 object Main extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
-    val usersRepo = interpreter
-      .create[IO, User, UserError](UserError.validate, _ => java.util.UUID.randomUUID.toString)
+    implicit val imMemoryKVStore = KVStore.createInMemory[IO, User]
+    val usersRepo: IO[algebra.ResourceAlgebra[IO, User]] = interpreter
+      .toResourceAlgebraF[IO, User](_ => java.util.UUID.randomUUID.toString)
 
     usersRepo.flatMap { users =>
       BlazeServerBuilder[IO]
