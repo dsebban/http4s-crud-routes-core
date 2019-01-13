@@ -1,6 +1,8 @@
 package com.github.dsebban.http4s.crud.routes.core
 
 import algebra._
+import cats.data._
+import cats.effect.IO 
 import cats.effect.Sync
 import cats.syntax.all._
 import io.circe.syntax._
@@ -8,6 +10,7 @@ import io.circe._
 import org.http4s._
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.circe._
+import org.http4s.server._
 import org.http4s.dsl.Http4sDsl
 
 class UserRoutesMTL[F[_], R, E <: Throwable](resourceAlgebra: ResourceAlgebra[F, R])(implicit F: Sync[F],
@@ -15,6 +18,13 @@ class UserRoutesMTL[F[_], R, E <: Throwable](resourceAlgebra: ResourceAlgebra[F,
                                                                                      D: Decoder[R],
                                                                                      H: HttpErrorHandler[F, E])
     extends Http4sDsl[F] {
+
+val authUser: Kleisli[F, Request[F], Either[String,R]] = Kleisli(_ => ???)
+
+val onFailure: AuthedService[String, F] = Kleisli(req => OptionT.liftF(Forbidden(req.authInfo)))
+val middleware = AuthMiddleware(authUser, onFailure)
+
+// val service: HttpRoutes[IO] = middleware(authedService)
 
   def getAll: HttpRoutes[F] =
     H.handle {
