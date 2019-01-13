@@ -15,7 +15,7 @@ object server {
     import org.http4s.implicits._
     import org.http4s.server.Router
 
-    val routes = Router(prefix -> new UserRoutesMTL[F, R, E](repo).routes)
+    val routes: HttpRoutes[F] = Router(prefix -> new UserRoutesMTL[F, R, E](repo).routes)
 
     val httpApp: HttpApp[F] = routes.orNotFound
 
