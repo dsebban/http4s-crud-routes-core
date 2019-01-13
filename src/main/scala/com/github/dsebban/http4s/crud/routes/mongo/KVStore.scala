@@ -26,11 +26,3 @@ object KVStore {
       }
     }
 }
-
-class A {
-  val b: B = null
-}
-
-class B {
-  val a: A = null
-}
