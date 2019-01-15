@@ -4,6 +4,7 @@ import algebra._
 import cats.effect._
 import com.olegpy.meow.hierarchy._
 import org.http4s._
+import org.http4s.server._
 import io.circe._
 
 object server {
@@ -16,6 +17,21 @@ object server {
     import org.http4s.server.Router
 
     val routes: HttpRoutes[F] = Router(prefix -> new UserRoutesMTL[F, R, E](repo).routes)
+
+    val httpApp: HttpApp[F] = routes.orNotFound
+
+  }
+
+  class AuthedHttpServer[F[_]: Sync, R: Encoder: Decoder, E <: Throwable, A](repo: AuthedResourceAlgebra[F, R, A],
+                                                                             middleware: AuthMiddleware[F, A],
+                                                                             prefix: String)(
+      implicit H: HttpErrorHandler[F, E]
+  ) {
+
+    import org.http4s.implicits._
+    import org.http4s.server.Router
+
+    val routes: HttpRoutes[F] = Router(prefix -> new UserAuthedRoutesMTL[F, R, E, A](repo, middleware).routes)
 
     val httpApp: HttpApp[F] = routes.orNotFound
 

@@ -12,4 +12,12 @@ object algebra {
     // def update[P](id: String, field: R => P, newValue: P, copy: (R, P) => R): F[Unit]
   }
 
+  trait AuthedResourceAlgebra[F[_], R, A] {
+    def save(r: R, user: A): F[(String, R)]
+    def find(id: String, user: A): F[Option[R]]
+    def delete(id: String, user: A): F[Unit]
+    def list(user: A): Stream[F, (String, R)]
+    // def update[P](id: String, field: R => P, newValue: P, copy: (R, P) => R): F[Unit]
+  }
+
 }

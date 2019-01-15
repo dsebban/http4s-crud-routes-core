@@ -11,6 +11,7 @@ import org.http4s._
 
 object domain {
 
+  case class AuthInfo(organization: String, user: String)
   case class User(username: String, age: Int)
   case class UserUpdateAge(age: Int)
 

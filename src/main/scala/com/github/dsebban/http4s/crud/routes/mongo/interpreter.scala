@@ -19,7 +19,24 @@ object interpreter {
       def list: Stream[F, (String, V)]   = kvStore.scan
     }
 
+  def toAuthResourceAlgebra[F[_], V, A](kvStore: KVStore[F, String, V],
+                                        keyGen: V => String)(implicit F: Sync[F]): AuthedResourceAlgebra[F, V, A] =
+    new AuthedResourceAlgebra[F, V, A] {
+      def save(r: V, a: A): F[(String, V)] = {
+        val key = keyGen(r)
+        kvStore.put(key, r) *> F.pure((key, r))
+      }
+      def find(id: String, a: A): F[Option[V]]  = kvStore.get(id)
+      def delete(id: String, a: A): F[Unit]     = kvStore.delete(id)
+      def list(user: A): Stream[F, (String, V)] = kvStore.scan
+    }
+
   def toResourceAlgebraF[F[_], V](keyGen: V => String)(implicit F: Sync[F],
                                                        KV: F[KVStore[F, String, V]]): F[ResourceAlgebra[F, V]] =
     KV.map(kvStore => toResourceAlgebra(kvStore, keyGen))
+
+  def toAuthResourceAlgebraF[F[_], V, A](
+      keyGen: V => String
+  )(implicit F: Sync[F], KV: F[KVStore[F, String, V]]): F[AuthedResourceAlgebra[F, V, A]] =
+    KV.map(kvStore => toAuthResourceAlgebra(kvStore, keyGen))
 }

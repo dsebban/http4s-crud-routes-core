@@ -6,8 +6,10 @@ import cats.syntax.all._
 import io.circe.syntax._
 import io.circe._
 import org.http4s._
+import org.http4s.server.AuthMiddleware
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.circe._
+
 import org.http4s.dsl.Http4sDsl
 
 class UserRoutesMTL[F[_], R, E <: Throwable](resourceAlgebra: ResourceAlgebra[F, R])(implicit F: Sync[F],
@@ -15,8 +17,6 @@ class UserRoutesMTL[F[_], R, E <: Throwable](resourceAlgebra: ResourceAlgebra[F,
                                                                                      D: Decoder[R],
                                                                                      H: HttpErrorHandler[F, E])
     extends Http4sDsl[F] {
-
-// val service: HttpRoutes[IO] = middleware(authedService)
 
   def getAll: HttpRoutes[F] =
     H.handle {
@@ -39,6 +39,63 @@ class UserRoutesMTL[F[_], R, E <: Throwable](resourceAlgebra: ResourceAlgebra[F,
       HttpRoutes.of[F] {
         case req @ POST -> Root =>
           req.as[R] >>= (r => resourceAlgebra.save(r)) >>= { case (id, _) => Created(id.asJson) }
+      }
+    }
+
+// def update: HttpRoutes[F] =
+//     H.handle {
+//       HttpRoutes.of[F] {
+//     case req @ PUT -> Root / id =>
+//       req.as[UserUpdateAge] >>= (
+//           uu =>
+//             resourceAlgebra.update(id, _.age, uu.age, (u: User, newAge: Int) => u.copy(age = newAge)) *> Created(
+//               id.asJson
+//             )
+//       )
+//   }
+
+  val routes: HttpRoutes[F] = getAll <+> getByID <+> create
+
+}
+
+class UserAuthedRoutesMTL[F[_], R, E <: Throwable, A](resourceAlgebra: AuthedResourceAlgebra[F, R, A],
+                                                      Middleware: AuthMiddleware[F, A])(
+    implicit F: Sync[F],
+    E: Encoder[R],
+    D: Decoder[R],
+    H: HttpErrorHandler[F, E]
+) extends Http4sDsl[F] {
+
+  def getAll: HttpRoutes[F] =
+    H.handle {
+      Middleware {
+        AuthedService {
+          case GET -> Root as auth =>
+            println(auth)
+            Ok(resourceAlgebra.list(auth).map(_.asJson))
+        }
+      }
+    }
+
+  def getByID: HttpRoutes[F] =
+    H.handle {
+      Middleware {
+        AuthedService {
+          case GET -> Root / id as auth =>
+            resourceAlgebra.find(id, auth) >>= (_.fold(NotFound(s"Not found: $id".asJson))(r => Ok(r.asJson)))
+        }
+      }
+    }
+
+  def create: HttpRoutes[F] =
+    H.handle {
+      Middleware {
+        AuthedService {
+          case req @ POST -> Root as auth =>
+            // println(auth)
+
+            req.req.as[R] >>= (r => resourceAlgebra.save(r, auth)) >>= { case (id, _) => Created(id.asJson) }
+        }
       }
     }
 
