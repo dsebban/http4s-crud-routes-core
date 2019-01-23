@@ -17,12 +17,13 @@ object domain {
 
   sealed trait UserError extends Exception
   object UserError {
+    // case class CompositeErrors(errors: UserError) extends UserError
     case class UserAlreadyExists(user: User) extends UserError
     case class UserNotFound(username: String) extends UserError
     case class NameTooLong(username: String) extends UserError
     case class InvalidUserAge(age: Int) extends UserError
 
-    def validate: User => EitherNel[UserError, User] = { user =>
+    def validate: (User, AuthInfo) => EitherNel[UserError, User] = { (user, _) =>
       val validateName =
         user.username
           .asRight[UserError]

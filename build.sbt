@@ -34,6 +34,8 @@ lazy val commonScalacOptions = Seq(
   "100"
 )
 
+resolvers += Resolver.bintrayRepo("dmbl", "dinogroup")
+
 lazy val root = (project in file(".")).settings(
   inThisBuild(
     List(
@@ -71,6 +73,7 @@ lazy val root = (project in file(".")).settings(
     Libraries.circeGenericExt,
     Libraries.circeParser,
     Libraries.log4cats,
+    Libraries.reactivemongo,
     Libraries.logback,
     Libraries.acyclic        % "provided",
     Libraries.scalaTest      % "test",

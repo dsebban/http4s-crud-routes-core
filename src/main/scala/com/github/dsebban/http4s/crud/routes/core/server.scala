@@ -2,6 +2,7 @@ package com.github.dsebban.http4s.crud.routes.core
 
 import algebra._
 import cats.effect._
+import cats.data.EitherNel
 import com.olegpy.meow.hierarchy._
 import org.http4s._
 import org.http4s.server._
@@ -24,6 +25,7 @@ object server {
 
   class AuthedHttpServer[F[_]: Sync, R: Encoder: Decoder, E <: Throwable, A](repo: AuthedResourceAlgebra[F, R, A],
                                                                              middleware: AuthMiddleware[F, A],
+                                                                             validator: (R, A) => EitherNel[E, R],
                                                                              prefix: String)(
       implicit H: HttpErrorHandler[F, E]
   ) {
@@ -31,7 +33,9 @@ object server {
     import org.http4s.implicits._
     import org.http4s.server.Router
 
-    val routes: HttpRoutes[F] = Router(prefix -> new UserAuthedRoutesMTL[F, R, E, A](repo, middleware).routes)
+    val routes: HttpRoutes[F] = Router(
+      prefix -> new UserAuthedRoutesMTL[F, R, E, A](repo, middleware, validator).routes
+    )
 
     val httpApp: HttpApp[F] = routes.orNotFound
 

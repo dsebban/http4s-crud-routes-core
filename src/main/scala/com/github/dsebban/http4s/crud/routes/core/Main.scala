@@ -17,7 +17,7 @@ import com.github.dsebban.http4s.crud.routes.mongo.KVStore
 object Main extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
-    implicit val imMemoryKVStore = KVStore.createInMemory[IO, User]
+    implicit val imMemoryKVStore = KVStore.createInMemory[IO, User, AuthInfo]
     // val usersRepo: IO[algebra.ResourceAlgebra[IO, User]] = interpreter
     //   .toResourceAlgebraF[IO, User](_ => java.util.UUID.randomUUID.toString)
     // // case class Metadata(user: String)
@@ -31,9 +31,16 @@ object Main extends IOApp {
       .toAuthResourceAlgebraF[IO, User, AuthInfo](_ => java.util.UUID.randomUUID.toString)
 
     val authUser: Kleisli[OptionT[IO, ?], Request[IO], AuthInfo] =
-      Kleisli(_ => OptionT.liftF(IO(AuthInfo("bigpanda", "daniel"))))
+      Kleisli { request =>
+        val headers: Map[String, String] = request.headers.toList.map(h => h.name.toString -> h.value).toMap
+        OptionT.fromOption(for {
+          org <- headers.get("organization")
+          userName <- headers.get("user_name")
+          auth = AuthInfo(org, userName)
+        } yield auth)
+      }
     val routes: algebra.AuthedResourceAlgebra[IO, User, AuthInfo] => HttpRoutes[IO] = users =>
-      new AuthedHttpServer[IO, User, UserError, AuthInfo](users, AuthMiddleware(authUser), "/users").routes
+      new AuthedHttpServer[IO, User, UserError, AuthInfo](users, AuthMiddleware(authUser), UserError.validate, "/users").routes
 
     usersRepo.flatMap { users =>
       BlazeServerBuilder[IO]

@@ -13,6 +13,7 @@ object Dependencies {
     val circe               = "0.10.1"
     val shapeless           = "2.3.3"
     val log4cats            = "0.2.0-RC2"
+    val reactivemongo       = "0.16.1"
 
     val betterMonadicFor    = "0.3.0-M2"
     val acyclic             = "0.1.7"
@@ -45,6 +46,7 @@ object Dependencies {
     lazy val circeGenericExt     = circe("circe-generic-extras")
     lazy val circeParser         = circe("circe-parser")
     lazy val log4cats            = "io.chrisdavenport"     %% "log4cats-slf4j"             % Versions.log4cats
+    lazy val reactivemongo        = "org.reactivemongo" %% "reactivemongo"                  % Versions.reactivemongo
 
     // Compiler plugins
     lazy val betterMonadicFor    = "com.olegpy"            %% "better-monadic-for"         % Versions.betterMonadicFor
