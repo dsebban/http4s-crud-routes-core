@@ -17,7 +17,26 @@ import com.github.dsebban.http4s.crud.routes.mongo.KVStore
 object Main extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
-    implicit val imMemoryKVStore = KVStore.createInMemory[IO, User, AuthInfo]
+    import reactivemongo.bson._
+    import scala.concurrent.Future
+
+    import reactivemongo.api.{ DefaultDB, MongoConnection, MongoDriver }
+    import scala.concurrent.ExecutionContext.Implicits.global
+    implicit val userReader = Macros.reader[User]
+    implicit val userWriter = Macros.writer[User]
+
+    // Connect to the database: Must be done only once per application
+
+    val db: IO[DefaultDB] = IO.fromFuture(IO {
+      val mongoUri  = "mongodb://127.0.0.1:27017"
+      val driver    = MongoDriver()
+      val parsedUri = MongoConnection.parseURI(mongoUri)
+      Future.fromTry(parsedUri.map(driver.connection(_))).flatMap(_.database("db"))
+    })
+
+    implicit val mongoKVStore = KVStore.create[IO, User, AuthInfo](db, _.organization)
+    // implicit val imMemoryKVStore = KVStore.createInMemory[IO, User, AuthInfo]
+
     // val usersRepo: IO[algebra.ResourceAlgebra[IO, User]] = interpreter
     //   .toResourceAlgebraF[IO, User](_ => java.util.UUID.randomUUID.toString)
     // // case class Metadata(user: String)
@@ -28,7 +47,7 @@ object Main extends IOApp {
     import org.http4s.server._
     import cats.data._
     val usersRepo: IO[algebra.AuthedResourceAlgebra[IO, User, AuthInfo]] = interpreter
-      .toAuthResourceAlgebraF[IO, User, AuthInfo](_ => java.util.UUID.randomUUID.toString)
+      .toAuthResourceAlgebraF[IO, User, AuthInfo](_ => BSONObjectID.generate().stringify)
 
     val authUser: Kleisli[OptionT[IO, ?], Request[IO], AuthInfo] =
       Kleisli { request =>

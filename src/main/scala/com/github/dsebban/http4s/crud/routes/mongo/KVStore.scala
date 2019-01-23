@@ -27,31 +27,47 @@ object KVStore {
       }
     }
   import reactivemongo.api.{ DefaultDB, ReadPreference }
-  import reactivemongo.bson.{ BSONDocument, BSONDocumentReader, BSONObjectID }
+  import reactivemongo.bson.{ BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONObjectID }
   import scala.concurrent.ExecutionContext.Implicits.global
   import cats.effect.IO
+  import cats.effect.LiftIO
 
-  def create[V, A](dbF: IO[DefaultDB], colName: A => String)(
-      implicit reader: BSONDocumentReader[V]
-  ): IO[KVStore[IO, String, V, A]] = {
-    def validateId(id: String): IO[BSONObjectID] = ???
+  def create[F[_], V, A](dbF: F[DefaultDB], colName: A => String)(
+      implicit F: Sync[F],
+      L: LiftIO[F],
+      reader: BSONDocumentReader[V],
+      writer: BSONDocumentWriter[V]
+  ): F[KVStore[F, String, V, A]] = {
+    def validateId(id: String): F[BSONObjectID] = BSONObjectID.parse(id).fold(F.raiseError, F.pure)
     dbF.map { db =>
-      new KVStore[IO, String, V, A] {
-        def get(k: String, a: A): IO[Option[V]] =
+      new KVStore[F, String, V, A] {
+        def get(k: String, a: A): F[Option[V]] =
           validateId(k) >>=
             (
                 bsonId =>
-                  IO.fromFuture(IO {
-                    db.collection(colName(a))
-                      .find(BSONDocument("_id" -> bsonId), None)
-                      .cursor[V](ReadPreference.Primary)
-                      .headOption
-                  })
+                  L.liftIO {
+                    IO.fromFuture(IO {
+                      db.collection(colName(a))
+                        .find(BSONDocument("_id" -> bsonId), None)
+                        .cursor[V](ReadPreference.Primary)
+                        .headOption
+                    })
+                  }
             )
 
-        def put(k: String, v: V, a: A): IO[Unit] = ???
-        def delete(k: String, a: A): IO[Unit]    = ???
-        def scan(a: A): Stream[IO, (String, V)] =
+        def put(k: String, v: V, a: A): F[Unit] =
+          validateId(k) >>=
+            (
+                _ =>
+                  L.liftIO {
+                    IO.fromFuture(IO {
+                      db.collection(colName(a))
+                        .insert(v)
+                    })
+                  } *> F.unit
+            )
+        def delete(k: String, a: A): F[Unit] = ???
+        def scan(a: A): Stream[F, (String, V)] =
           ???
       }
     }
