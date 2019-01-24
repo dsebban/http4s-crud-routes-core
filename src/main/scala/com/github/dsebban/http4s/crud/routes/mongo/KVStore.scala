@@ -26,11 +26,12 @@ object KVStore {
           Stream.eval(state.get.map(v => Stream.fromIterator(v.toList.iterator))).flatten
       }
     }
-  import reactivemongo.api.{ DefaultDB, ReadPreference }
+  import reactivemongo.api.{ Cursor, DefaultDB, ReadPreference }
   import reactivemongo.bson.{ BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONObjectID }
   import scala.concurrent.ExecutionContext.Implicits.global
   import cats.effect.IO
   import cats.effect.LiftIO
+  import types._
 
   def create[F[_], V, A](dbF: F[DefaultDB], colName: A => String)(
       implicit F: Sync[F],
@@ -68,7 +69,22 @@ object KVStore {
             )
         def delete(k: String, a: A): F[Unit] = ???
         def scan(a: A): Stream[F, (String, V)] =
-          ???
+          Stream
+            .eval {
+              L.liftIO {
+                IO.fromFuture(IO {
+
+                  db.collection(colName(a))
+                    .find(BSONDocument(), None)
+                    .cursor[WithId[V]](ReadPreference.Primary)
+                    .collect[List](Int.MaxValue, Cursor.FailOnError())
+                    .map(l => Stream.fromIterator(l.iterator))
+
+                })
+              }
+            }
+            .flatten
+            .map(r => (r.id, r.data))
       }
     }
   }

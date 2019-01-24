@@ -24,6 +24,7 @@ object Main extends IOApp {
     import scala.concurrent.ExecutionContext.Implicits.global
     implicit val userReader = Macros.reader[User]
     implicit val userWriter = Macros.writer[User]
+    // import com.github.dsebban.http4s.crud.routes.mongo.MongoHelpers.MongoError._
 
     // Connect to the database: Must be done only once per application
 
