@@ -3,20 +3,24 @@ package com.github.dsebban.http4s.crud.routes.mongo
 import scala.concurrent.ExecutionContext.Implicits.global
 import cats.implicits._
 import cats.effect.IO
+import cats.Applicative
+import cats.effect.Resource
 import cats.effect.LiftIO
+import cats.effect.Sync
 import types._
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.WriteResult
 import reactivemongo.api.commands.bson.DefaultBSONCommandError
-// import reactivemongo.api.indexes.{ Index, IndexType }
-import reactivemongo.api.indexes.{  IndexType }
+import reactivemongo.api.indexes.{ Index, IndexType }
+import reactivemongo.api.indexes.{ IndexType }
 
-import reactivemongo.api.{ Cursor,  ReadPreference }
+import reactivemongo.api.{ DefaultDB, MongoConnection, MongoDriver }
+import reactivemongo.api.{ Cursor, ReadPreference }
 import reactivemongo.bson.{ BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONObjectID }
 import reactivemongo.core.errors.DatabaseException
 
 import scala.concurrent.Future
-import scala.util.Try
+import scala.concurrent.duration._
 
 object MongoErrorCodes {
   val DuplicateUniqueKeyErrorCode = 11000
@@ -37,7 +41,6 @@ object MongoHelpers {
     val bson: BSONDocument = BSONDocument(fieldName.name -> orderInt)
 
   }
-
   import MongoErrorCodes._
 
   trait MongoError extends Exception
@@ -66,9 +69,9 @@ object MongoHelpers {
         extends HttpErrorHandler[F, MongoError]
         with Http4sDsl[F] {
       private val handler: MongoError => F[Response[F]] = {
-        case InvalidObjectId(id)                       => BadRequest(s"Invalid $id is ".asJson)
-        case ObjectNotFound(id)                             => BadRequest(s"Invalid id $id".asJson)
-        case DuplicateUniqueKeyError(id)               => Conflict(s"id $id already exists!".asJson)
+        case InvalidObjectId(id)                     => BadRequest(s"Invalid $id is ".asJson)
+        case ObjectNotFound(id)                      => BadRequest(s"Invalid id $id".asJson)
+        case DuplicateUniqueKeyError(id)             => Conflict(s"id $id already exists!".asJson)
         case ObjectWithPropertyNotFound(propName, _) => NotFound(s"User not found: $propName".asJson)
       }
       override def handle(routes: HttpRoutes[F]): HttpRoutes[F] =
@@ -76,31 +79,45 @@ object MongoHelpers {
     }
   }
 
-  // This is deliberately sync to make sure collection is created
-  // def initCollection(
+  // def initCollection[F[_]: LiftIO](
   //     connection: MongoConnection,
   //     databaseName: String,
   //     collectionName: String,
   //     indexKey: Option[String]
-  // ): Future[BSONCollection] =
-  //   for {
+  // ): F[BSONCollection] =
+  //   lift(for {
   //     db <- connection.database(databaseName)
   //     col = db.collection(collectionName)
-  //     _ <- indexKey.fold(Future.successful(false))(
+  //     _ <- indexKey.fold(F.pure(false))(
   //           key => ensureIndex(col = col, IndexInformation(key, unique = true, IndexType.Ascending))
   //         )
-  //   } yield col
+  //   } yield col)
 
-  // // This is deliberately sync to endure index
-  // def ensureIndex(
-  //     col: BSONCollection,
-  //     index: IndexInformation
-  // ): Future[Boolean] =
-  //   col.indexesManager
-  //     .ensure(Index(Seq(index.key -> index.indexType), unique = index.unique, background = true))
+  def ensureIndex[F[_]: LiftIO](
+      col: BSONCollection,
+      index: IndexInformation
+  ): F[Boolean] =
+    lift(
+      col.indexesManager
+        .ensure(Index(Seq(index.key -> index.indexType), unique = index.unique, background = true))
+    )
 
-  def lift[F[_]: LiftIO, A](future: Future[A])(errors: Throwable => IO[A])(implicit L: LiftIO[F]): F[A] =
+  def lift[F[_]: LiftIO, A](future: => Future[A], errors: Throwable => IO[A] = (t: Throwable) => IO.raiseError(t))(
+      implicit L: LiftIO[F]
+  ): F[A] =
     L.liftIO(IO.fromFuture(IO(future)).handleErrorWith(errors))
+
+  def getConnection[F[_]: LiftIO: Applicative](mongoUri: String): Resource[F, MongoConnection] =
+    Resource.make(lift {
+      val driver    = MongoDriver()
+      val parsedUri = MongoConnection.parseURI(mongoUri)
+      Future.fromTry(parsedUri.map(driver.connection(_)))
+    })(c => lift(({ println("--------"); c.askClose()(30.seconds) }.map(_ => ()))))
+
+  def getDB[F[_]: LiftIO: Applicative](mongoUri: String, dbName: String): Resource[F, DefaultDB] =
+    getConnection(mongoUri).flatMap { conn =>
+      Resource.liftF(lift(conn.database(dbName)))
+    }
 
   def create[F[_]: LiftIO, O](
       mongoCollection: BSONCollection,
@@ -108,11 +125,13 @@ object MongoHelpers {
       obj: O
   )(implicit
     ev: BSONDocumentWriter[WithId[O]]): F[Unit] =
-    lift(mongoCollection.insert(WithId(id.stringify, obj)).void) {
-      case de: DatabaseException if de.code == Some(DuplicateUniqueKeyErrorCode) =>
-        IO.raiseError(DuplicateUniqueKeyError(de.message))
-      case others => IO.raiseError(others)
-    }
+    lift(
+      mongoCollection.insert(WithId(id.stringify, obj)).void, {
+        case de: DatabaseException if de.code == Some(DuplicateUniqueKeyErrorCode) =>
+          IO.raiseError(DuplicateUniqueKeyError(de.message))
+        case others => IO.raiseError(others)
+      }
+    )
 
   def update[F[_], U, O](
       mongoCollection: BSONCollection,
@@ -130,12 +149,12 @@ object MongoHelpers {
           fetchNewObject = true
         )
         .map(_.result[WithId[U]])
-        .map(_.map(_.data))
-    ) {
-      case ce: DefaultBSONCommandError if ce.code == Some(DuplicateUniqueKeyErrorCode) =>
-        IO.raiseError(DuplicateUniqueKeyError(ce.errmsg.getOrElse("")))
-      case others => IO.raiseError(others)
-    }
+        .map(_.map(_.data)), {
+        case ce: DefaultBSONCommandError if ce.code == Some(DuplicateUniqueKeyErrorCode) =>
+          IO.raiseError(DuplicateUniqueKeyError(ce.errmsg.getOrElse("")))
+        case others => IO.raiseError(others)
+      }
+    )
 
   def upsertByProperty[U, O](
       mongoCollection: BSONCollection,
@@ -149,93 +168,79 @@ object MongoHelpers {
       .findAndUpdate(BSONDocument(name -> value), BSONDocument("$set" -> updateData), upsert = true)
       .map(_.result[WithId[O]])
 
-  def getById[O](
+  def getById[F[_], O](
       mongoCollection: BSONCollection,
-      objId: String
+      id: BSONObjectID,
   )(implicit
-    ev: BSONDocumentReader[WithId[O]]): Future[Option[WithId[O]]] = {
-    val parsedId: Try[BSONObjectID] = BSONObjectID.parse(objId)
-    if (parsedId.isFailure) {
-      Future.failed(InvalidObjectId(objId))
-    } else {
-      val selector = BSONDocument("_id" -> parsedId.get)
+    F: LiftIO[F],
+    ev: BSONDocumentReader[WithId[O]]): F[Option[WithId[O]]] =
+    lift(
       mongoCollection
-        .find(selector, None)
+        .find(BSONDocument("_id" -> id), None)
         .cursor[WithId[O]](ReadPreference.Primary)
         .headOption
-    }
-  }
+    )
 
-  def getByProperty[O](
+  def getByProperty[F[_], O](
       mongoCollection: BSONCollection,
       name: String,
       value: String
   )(implicit
-    ev: BSONDocumentReader[WithId[O]]): Future[Option[WithId[O]]] = {
+    F: LiftIO[F],
+    ev: BSONDocumentReader[WithId[O]]): F[Option[WithId[O]]] =
+    lift(
+      mongoCollection
+        .find(BSONDocument(name -> value), None)
+        .cursor[WithId[O]](ReadPreference.Primary)
+        .headOption
+    )
 
-    val selector = BSONDocument(name -> value)
-    mongoCollection
-      .find(selector, None)
-      .cursor[WithId[O]](ReadPreference.Primary)
-      .headOption
-  }
-
-  def getAll[O](
+  def getAll[F[_], O](
       mongoCollection: BSONCollection,
       findFilter: BSONDocument = BSONDocument(),
       limit: Option[Integer] = None,
       sortBy: Option[SortBy] = None
   )(implicit
-    ev: BSONDocumentReader[WithId[O]]): Future[List[WithId[O]]] = {
+    F: LiftIO[F],
+    ev: BSONDocumentReader[WithId[O]]): F[List[WithId[O]]] = {
     val maxDocs: Integer = limit match {
       case Some(n) => n
       case None    => Int.MaxValue
     }
 
-    mongoCollection
-      .find(findFilter, None)
-      .sort(sortBy.map(_.bson).getOrElse(BSONDocument()))
-      .cursor[WithId[O]](ReadPreference.Primary)
-      .collect[List](maxDocs, Cursor.FailOnError())
+    lift(
+      mongoCollection
+        .find(findFilter, None)
+        .sort(sortBy.map(_.bson).getOrElse(BSONDocument()))
+        .cursor[WithId[O]](ReadPreference.Primary)
+        .collect[List](maxDocs, Cursor.FailOnError())
+    )
   }
 
-  def removeAll(
+  def removeAll[F[_]: LiftIO](
       mongoCollection: BSONCollection
-  ): Future[WriteResult] =
-    mongoCollection.delete().one(BSONDocument())
+  ): F[WriteResult] =
+    lift(mongoCollection.delete().one(BSONDocument()))
 
-  def remove(
+  def remove[F[_]: Sync](
       mongoCollection: BSONCollection,
-      objId: String
-  ): Future[Unit] = {
-    val parsedId = BSONObjectID.parse(objId)
-    if (parsedId.isFailure) {
-      Future.failed(InvalidObjectId(objId))
-    } else {
+      id: BSONObjectID
+  )(implicit F: LiftIO[F]): F[WriteResult] =
+    lift(
       mongoCollection
         .delete()
-        .one(BSONDocument("_id" -> parsedId.get))
-        .flatMap { wr =>
-          if (wr.n > 0)
-            Future.successful(())
-          else
-            Future.failed(ObjectNotFound(objId))
-        }
-    }
-  }
+        .one(BSONDocument("_id" -> id))
+    )
 
-  def removeByProperty(
+  def removeByProperty[F[_]: LiftIO](
       mongoCollection: BSONCollection,
       name: String,
       value: String
-  ): Future[Unit] =
-    mongoCollection
-      .delete()
-      .one(BSONDocument(name -> value))
-      .flatMap { wr =>
-        if (wr.n > 0)
-          Future.successful(())
-        else
-          Future.failed(ObjectWithPropertyNotFound(name, value))
-      }
+  ): F[WriteResult] =
+    lift(
+      mongoCollection
+        .delete()
+        .one(BSONDocument(name -> value))
+    )
+
 }

@@ -6,7 +6,7 @@ object Dependencies {
     val cats                = "1.5.0"
     val catsMeowMtl         = "0.2.0"
     val catsPar             = "0.2.0"
-    val catsEffect          = "1.1.0"
+    val catsEffect          = "1.2.0"
     val fs2                 = "1.0.2"
     val http4s              = "0.20.0-M4"
     val http4sTracer        = "1.2.0"
