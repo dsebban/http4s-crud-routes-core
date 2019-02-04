@@ -47,6 +47,8 @@ object Dependencies {
     lazy val circeParser         = circe("circe-parser")
     lazy val log4cats            = "io.chrisdavenport"     %% "log4cats-slf4j"             % Versions.log4cats
     lazy val reactivemongo        = "org.reactivemongo" %% "reactivemongo"                  % Versions.reactivemongo
+    lazy val reactivemongoBson        = "org.reactivemongo" %% "reactivemongo-bson"                  % Versions.reactivemongo
+    lazy val reactivemongoMacros        = "org.reactivemongo" %% "reactivemongo-bson-macros"                  % Versions.reactivemongo
 
     // Compiler plugins
     lazy val betterMonadicFor    = "com.olegpy"            %% "better-monadic-for"         % Versions.betterMonadicFor

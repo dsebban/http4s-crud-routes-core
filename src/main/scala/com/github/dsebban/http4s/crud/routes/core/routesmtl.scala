@@ -56,9 +56,11 @@ class UserRoutesMTL[F[_], R, E <: Throwable](resourceAlgebra: ResourceAlgebra[F,
 
 }
 
-class UserAuthedRoutesMTL[F[_], R, E <: Throwable, A](resourceAlgebra: AuthedResourceAlgebra[F, R, A],
-                                                      Middleware: AuthMiddleware[F, A],
-                                                      validator: (R, A) => EitherNel[E, R])(
+class UserAuthedRoutesMTL[F[_], R, E <: Throwable, ME <: Throwable, A](
+    resourceAlgebra: AuthedResourceAlgebra[F, R, A, ME],
+    Middleware: AuthMiddleware[F, A],
+    validator: (R, A) => EitherNel[E, R]
+)(
     implicit F: Sync[F],
     E: Encoder[R],
     D: Decoder[R],

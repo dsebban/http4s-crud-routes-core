@@ -36,7 +36,7 @@ object domain {
       (validateName, validateAge)
         .parMapN(User(_, _))
     }
-
+    import com.olegpy.meow.hierarchy._
     implicit def errorHandler[F[_]: MonadError[?[_], UserError]]: HttpErrorHandler[F, UserError] =
       new UserHttpErrorHandler[F]
 

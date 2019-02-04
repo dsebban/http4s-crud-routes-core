@@ -69,7 +69,7 @@ object MongoHelpers {
         extends HttpErrorHandler[F, MongoError]
         with Http4sDsl[F] {
       private val handler: MongoError => F[Response[F]] = {
-        case InvalidObjectId(id)                     => BadRequest(s"Invalid $id is ".asJson)
+        case InvalidObjectId(id)                     => BadRequest(s"Invalid $id".asJson)
         case ObjectNotFound(id)                      => BadRequest(s"Invalid id $id".asJson)
         case DuplicateUniqueKeyError(id)             => Conflict(s"id $id already exists!".asJson)
         case ObjectWithPropertyNotFound(propName, _) => NotFound(s"User not found: $propName".asJson)
@@ -78,20 +78,6 @@ object MongoHelpers {
         RoutesHttpErrorHandler(routes)(handler)
     }
   }
-
-  // def initCollection[F[_]: LiftIO](
-  //     connection: MongoConnection,
-  //     databaseName: String,
-  //     collectionName: String,
-  //     indexKey: Option[String]
-  // ): F[BSONCollection] =
-  //   lift(for {
-  //     db <- connection.database(databaseName)
-  //     col = db.collection(collectionName)
-  //     _ <- indexKey.fold(F.pure(false))(
-  //           key => ensureIndex(col = col, IndexInformation(key, unique = true, IndexType.Ascending))
-  //         )
-  //   } yield col)
 
   def ensureIndex[F[_]: LiftIO](
       col: BSONCollection,
@@ -112,7 +98,7 @@ object MongoHelpers {
       val driver    = MongoDriver()
       val parsedUri = MongoConnection.parseURI(mongoUri)
       Future.fromTry(parsedUri.map(driver.connection(_)))
-    })(c => lift(({ println("--------"); c.askClose()(30.seconds) }.map(_ => ()))))
+    })(c => lift((c.askClose()(30.seconds).void)))
 
   def getDB[F[_]: LiftIO: Applicative](mongoUri: String, dbName: String): Resource[F, DefaultDB] =
     getConnection(mongoUri).flatMap { conn =>

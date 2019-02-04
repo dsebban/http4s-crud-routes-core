@@ -74,6 +74,8 @@ lazy val root = (project in file(".")).settings(
     Libraries.circeParser,
     Libraries.log4cats,
     Libraries.reactivemongo,
+    Libraries.reactivemongoBson,
+    Libraries.reactivemongoMacros,
     Libraries.logback,
     Libraries.acyclic        % "provided",
     Libraries.scalaTest      % "test",

@@ -23,18 +23,21 @@ object server {
 
   }
 
-  class AuthedHttpServer[F[_]: Sync, R: Encoder: Decoder, E <: Throwable, A](repo: AuthedResourceAlgebra[F, R, A],
-                                                                             middleware: AuthMiddleware[F, A],
-                                                                             validator: (R, A) => EitherNel[E, R],
-                                                                             prefix: String)(
-      implicit H: HttpErrorHandler[F, E]
+  class AuthedHttpServer[F[_]: Sync, R: Encoder: Decoder, E <: Throwable, ME <: Throwable, A](
+      repo: AuthedResourceAlgebra[F, R, A, ME],
+      middleware: AuthMiddleware[F, A],
+      validator: (R, A) => EitherNel[E, R],
+      prefix: String
+  )(
+      implicit H: HttpErrorHandler[F, E],
+      J: HttpErrorHandler[F, ME]
   ) {
 
     import org.http4s.implicits._
     import org.http4s.server.Router
 
     val routes: HttpRoutes[F] = Router(
-      prefix -> new UserAuthedRoutesMTL[F, R, E, A](repo, middleware, validator).routes
+      prefix -> J.handle(new UserAuthedRoutesMTL[F, R, E, ME, A](repo, middleware, validator).routes)
     )
 
     val httpApp: HttpApp[F] = routes.orNotFound

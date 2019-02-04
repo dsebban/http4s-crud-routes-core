@@ -14,12 +14,13 @@ object algebra {
   }
 
   //define this in term of ResourceAlgebra
-  trait AuthedResourceAlgebra[F[_], R, A] {
+  trait AuthedResourceAlgebra[F[_], R, A, E] {
     def save(r: R, user: A): F[(Id, R)]
     def find(id: Id, user: A): F[Option[R]]
     def delete(id: Id, user: A): F[Unit]
     def list(user: A): Stream[F, (Id, R)]
     // def update[P](id: String, field: R => P, newValue: P, copy: (R, P) => R): F[Unit]
+    // def errorHander[E <: Throwable]: HttpErrorHandler[F, E]
   }
 
 }

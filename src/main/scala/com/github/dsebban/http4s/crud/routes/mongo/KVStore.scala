@@ -30,6 +30,7 @@ object KVStore {
   import reactivemongo.bson.{ BSONDocumentReader, BSONDocumentWriter, BSONObjectID }
   import reactivemongo.api.collections.bson.BSONCollection
   import cats.effect.LiftIO
+  import MongoHelpers._
 
   def create[F[_], V, A](dbF: DefaultDB, colName: A => String)(
       implicit F: Sync[F],
@@ -37,7 +38,8 @@ object KVStore {
       reader: BSONDocumentReader[V],
       writer: BSONDocumentWriter[V]
   ): KVStore[F, String, V, A] = {
-    def validateId(id: String): F[BSONObjectID] = BSONObjectID.parse(id).fold(F.raiseError, F.pure)
+    def validateId(id: String): F[BSONObjectID] =
+      BSONObjectID.parse(id).fold(_ => F.raiseError(InvalidObjectId(id)), F.pure)
 
     def collection(a: A): BSONCollection = dbF.collection(colName(a))
     def validateAndGetCollection(k: String, a: A): F[(BSONObjectID, BSONCollection)] =
@@ -61,54 +63,5 @@ object KVStore {
 
     }
   }
-  //   new KVStore[F, String, V, A] {
-  //     def get(k: String, a: A): F[Option[V]] = ???
-  //     // validateId(k) >>=
-  //     //   (
-  //     //       bsonId =>
-  //     //         L.liftIO {
-  //     //           IO.fromFuture(IO {
-  //     //             db.collection(colName(a))
-  //     //               .find(BSONDocument("_id" -> bsonId), None)
-  //     //               .cursor[V](ReadPreference.Primary)
-  //     //               .headOption
-  //     //           })
-  //     //         }
-  //     //   )
-
-  //     def put(k: String, v: V, a: A): F[Unit] = ???
-  //     // validateId(k) >>=
-  //     //   (
-  //     //       _ =>
-  //     //         L.liftIO {
-  //     //           IO.fromFuture(IO {
-  //     //             db.collection(colName(a))
-  //     //               .insert(v)
-  //     //           })
-  //     //         } *> F.unit
-  //     //   )
-  //     def delete(k: String, a: A): F[Unit]   = ???
-  //     def scan(a: A): Stream[F, (String, V)] = ???
-  //     // Stream
-  //     //   .eval {
-  //     //     L.liftIO {
-  //     //       IO.fromFuture(IO {
-
-  //     //         db.collection(colName(a))
-  //     //           .find(BSONDocument(), None)
-  //     //           .cursor[WithId[V]](ReadPreference.Primary)
-  //     //           .collect[List](Int.MaxValue, Cursor.FailOnError())
-  //     //           .map(l => Stream.fromIterator(l.iterator))
-
-  //     //       })
-  //     //     }
-  //     //   }
-  //     //   .flatten
-  //     //   .map(r => (r.id, r.data))
-  //   }
-  // }
-  // def getMongoConnection[F[_]](mongoAddress: String, dbName: String)(implicit F: Sync[F]): F[MongoConnection] = F.sync {
-
-  // }
 
 }
