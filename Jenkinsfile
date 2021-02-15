@@ -7,7 +7,6 @@ pipeline {
                     REQUEST_MEMORY: "10Gi"
             ) { label ->
                 node(label) {
-                    try {
                         stage('checkout') {
                             checkout scm
                         }
@@ -18,7 +17,6 @@ pipeline {
                             }
                         }
     
-    }
 }
             }
 }
