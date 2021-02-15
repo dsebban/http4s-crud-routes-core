@@ -1,21 +1,12 @@
 pipeline {
-    agent any
-
+    agent {
+        docker { image 'hseeberger/scala-sbt:8u181_2.12.8_1.2.8"' }
+    }
     stages {
-        stage('Build') {
+        stage('Test') {
             steps {
-                // Get some code from a GitHub repository
-                git(
-                url: 'git@github.com:dsebban/http4s-crud-routes-core.git',
-                credentialsId: 'dccf6e43094de082da443f771fd5941392efc787',
-                branch: "master"
-                )
-
-                // To run Maven on a Windows agent, use
-                // bat "mvn -Dmaven.test.failure.ignore=true clean package"
-                publishChecks detailsURL: 'https://jenkins.eu.vchost.co', name: 'stage reporter', status: 'IN_PROGRESS', summary: 'Checking if need to faila', text: 'ss', title: 'bb'
+                sh "sbt test"
             }
-
         }
     }
 }
