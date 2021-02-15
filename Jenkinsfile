@@ -1,28 +1,12 @@
 pipeline {
-    agent any
-
+    agent {
+        docker { image 'hseeberger/scala-sbt:8u181_2.12.8_1.2.8"' }
+    }
     stages {
-
-        stage('Compile') {
-            steps {
-                echo "Compiling..."
-                sh "/usr/local/bin/sbt compile"
-            }
-        }
-
         stage('Test') {
             steps {
-                echo "Testing..."
-                sh "/usr/local/bin/sbt test"
+                sh 'sbt test'
             }
         }
-
-        stage('Package') {
-            steps {
-                echo "Packaging..."
-                sh "/usr/local/bin/sbt package"
-            }
-        }
-
     }
 }
